@@ -10,15 +10,6 @@
 </head>
 <body>
         <h1 class="app-title">地铁逃生交易行小助手</h1>
-        <div class="markdown-content">
-            <h3>使用说明</h3>
-            <ul>
-                <li>支持输入格式：10万、1千万、1000000等</li>
-                <li>药品：根据售价自动计算手续费和实际收入</li>
-                <li>装备：根据售价、回收价和词条数计算最优交易方案</li>
-                <li>图表中显示不同价格区间的手续费率和实际收入</li>
-            </ul>
-        </div>
 
         <div class="mobile-menu-container">
             <div class="menu-toggle" onclick="toggleMobileMenu()">
@@ -272,9 +263,38 @@
                 }
             }
 
+            // 计算极值点（手续费率变化点）
+            const extremePoints = [];
+            for (const fee of medicineFees) {
+                if (fee.price <= maxPrice) {
+                    const result = calculateMedicineFee(fee.price);
+                    extremePoints.push({
+                        x: fee.price,
+                        y: result.actualIncome,
+                        feeRate: result.feeRate
+                    });
+                }
+            }
+
+            // 计算最高点（实际收入最高的点）
+            let highestPoint = null;
+            let maxIncome = 0;
+            for (const point of chartData) {
+                if (point.y > maxIncome) {
+                    maxIncome = point.y;
+                    highestPoint = {
+                        x: point.x,
+                        y: point.y,
+                        feeRate: point.feeRate
+                    };
+                }
+            }
+
             return {
                 chartData: chartData,
                 turningPoints: turningPoints,
+                extremePoints: extremePoints,
+                highestPoint: highestPoint,
                 maxX: maxPrice
             };
         }
@@ -445,96 +465,171 @@
                         }
                     },
                     onHover: (event, activeElements) => {
-                        if (activeElements.length > 0) {
-                            const canvasPosition = Chart.helpers.getRelativePosition(event, medicineChart);
-                            let dataX = medicineChart.scales.x.getValueForPixel(canvasPosition.x);
-                            const dataY = medicineChart.scales.y.getValueForPixel(canvasPosition.y);
+                        const canvasPosition = Chart.helpers.getRelativePosition(event, medicineChart);
+                        let dataX = medicineChart.scales.x.getValueForPixel(canvasPosition.x);
+                        const dataY = medicineChart.scales.y.getValueForPixel(canvasPosition.y);
 
-                            // 检查是否在最大值范围内
-                            const data = medicineChart.data.datasets[0].data;
-                            const maxX = Math.max(...data.map(point => point.x));
-                            const maxXRange = maxX * 0.02; // 最大值2%的范围
-
-                            // 如果在最大值范围内，使用最大值
-                            if (Math.abs(dataX - maxX) < maxXRange) {
-                                dataX = maxX;
-                            }
-
+                        // 检查是否有用户输入的结果，如果有则调整tooltip位置避免重叠
+                        const resultDiv = document.getElementById('medicine-chart-result');
+                        if (resultDiv && resultDiv.dataset.isUserInput === 'true') {
+                            // 获取常驻结果的位置
+                            const resultRect = resultDiv.getBoundingClientRect();
+                            // 调整tooltip位置，避免与常驻结果重叠
                             const tooltip = document.getElementById('medicine-tooltip');
                             tooltip.style.display = 'block';
-                            const result = calculateMedicineFee(dataX);
-                            tooltip.innerHTML = `
-                                <table class="tooltip-table">
-                                    <tr><td>期望售价:</td><td>${formatPrice(dataX)}</td></tr>
-                                    <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
-                                    <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
-                                    <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
-                                </table>
-                            `;
+                            // 继续执行后续代码，显示tooltip
+                        }
 
-                            // 使用鼠标位置定位tooltip，并确保不超出body边界
-                            const tooltipRect = tooltip.getBoundingClientRect();
-                            const bodyRect = document.body.getBoundingClientRect();
+                        // 检查是否在最大值范围内
+                        const data = medicineChart.data.datasets[0].data;
+                        const maxX = Math.max(...data.map(point => point.x));
+                        const maxXRange = maxX * 0.02; // 最大值2%的范围
 
-                            let left = event.native.clientX - bodyRect.left + 10;
-                            let top = event.native.clientY - bodyRect.top - tooltipRect.height - 10;
+                        // 如果在最大值范围内，使用最大值
+                        if (Math.abs(dataX - maxX) < maxXRange) {
+                            dataX = maxX;
+                        }
 
-                            // 检查右边界
-                            if (left + tooltipRect.width > bodyRect.width) {
-                                left = event.native.clientX - bodyRect.left - tooltipRect.width - 10;
+                        const tooltip = document.getElementById('medicine-tooltip');
+                        tooltip.style.display = 'block';
+                        const result = calculateMedicineFee(dataX);
+                        tooltip.innerHTML = `
+                            <table class="tooltip-table">
+                                <tr><td>期望售价:</td><td>${formatPrice(dataX)}</td></tr>
+                                <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
+                                <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
+                                <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
+                            </table>
+                        `;
+
+                        // 使用鼠标位置定位tooltip，并确保不超出body边界
+                        const tooltipRect = tooltip.getBoundingClientRect();
+                        const bodyRect = document.body.getBoundingClientRect();
+
+                        let left = event.native.clientX - bodyRect.left + 10;
+                        let top = event.native.clientY - bodyRect.top - tooltipRect.height - 10;
+
+                        // 如果有常驻结果显示，调整tooltip位置避免重叠
+                        if (resultDiv && resultDiv.dataset.isUserInput === 'true') {
+                            const resultRect = resultDiv.getBoundingClientRect();
+                            // 如果tooltip会与常驻结果重叠，则调整位置
+                            if (left < resultRect.right && left + tooltipRect.width > resultRect.left &&
+                                top < resultRect.bottom && top + tooltipRect.height > resultRect.top) {
+                                // 将tooltip移到常驻结果的右侧
+                                left = resultRect.right + 10;
+                                // 如果右侧超出边界，则移到下方
+                                if (left + tooltipRect.width > bodyRect.width) {
+                                    left = event.native.clientX - bodyRect.left - tooltipRect.width - 10;
+                                    // 如果还是超出边界，则移到常驻结果的下方
+                                    if (left < 0) {
+                                        left = resultRect.left;
+                                        top = resultRect.bottom + 10;
+                                    }
+                                }
                             }
+                        }
 
-                            // 检查左边界
+                        // 检查右边界
+                        if (left + tooltipRect.width > bodyRect.width) {
+                            left = event.native.clientX - bodyRect.left - tooltipRect.width - 10;
+                        }
+
+                        // 检查左边界
+                        if (left < 0) {
+                            left = 10;
+                        }
+
+                        // 检查下边界
+                        if (top < 0) {
+                            top = event.native.clientY - bodyRect.top + 10;
+                        }
+
+                        // 检查上边界
+                        if (top + tooltipRect.height > bodyRect.height) {
+                            top = bodyRect.height - tooltipRect.height - 10;
+                        }
+
+                        tooltip.style.left = left + 'px';
+                        tooltip.style.top = top + 'px';
+
+                        // 检查是否靠近极值点
+                        let nearExtremePoint = false;
+                        let extremePointData = null;
+                        const extremePoints = data.extremePoints || [];
+                        for (const point of extremePoints) {
+                            const distance = Math.abs(point.x - dataX);
+                            if (distance < 1000000) { // 如果距离小于100万
+                                nearExtremePoint = true;
+                                extremePointData = point;
+                                break;
+                            }
+                        }
+
+                        // 检查是否靠近最高点
+                        let nearHighestPoint = false;
+                        let highestPointData = null;
+                        const highestPoint = data.highestPoint;
+                        if (highestPoint && !nearExtremePoint) {
+                            const distance = Math.abs(highestPoint.x - dataX);
+                            if (distance < 1000000) { // 如果距离小于100万
+                                nearHighestPoint = true;
+                                highestPointData = highestPoint;
+                            }
+                        }
+
+                        // 如果靠近极值点或最高点，使用它们的值
+                        let displayDataX = dataX;
+                        if (nearExtremePoint) {
+                            displayDataX = extremePointData.x;
+                        } else if (nearHighestPoint) {
+                            displayDataX = highestPointData.x;
+                        }
+
+                        const medicineResult = calculateMedicineFee(displayDataX);
+                        tooltip.innerHTML = `
+                            <table class="tooltip-table">
+                                <tr><td>期望售价:</td><td>${formatPrice(displayDataX)}</td></tr>
+                                <tr><td>手续费率:</td><td>${medicineResult.feeRate.toFixed(2)}%</td></tr>
+                                <tr><td>手续费:</td><td>${formatPrice(medicineResult.fee)}</td></tr>
+                                <tr><td>实际收入:</td><td>${formatPrice(medicineResult.actualIncome)}</td></tr>
+                                ${nearExtremePoint ? '<tr><td colspan="2" style="text-align:center;color:#FF6384;font-weight:bold;">极值点</td></tr>' : ''}
+                                ${nearHighestPoint ? '<tr><td colspan="2" style="text-align:center;color:#FF9F40;font-weight:bold;">最高点</td></tr>' : ''}
+                            </table>
+                        `;
+
+                        // 如果靠近极值点或最高点，调整tooltip位置
+                        if (nearExtremePoint || nearHighestPoint) {
+                            const point = nearExtremePoint ? extremePointData : highestPointData;
+                            const pointPixelX = medicineChart.scales.x.getPixelForValue(point.x);
+                            const pointPixelY = medicineChart.scales.y.getPixelForValue(point.y);
+                            const canvasRect = medicineChart.canvas.getBoundingClientRect();
+                            
+                            left = canvasRect.left + pointPixelX + 10;
+                            top = canvasRect.top + pointPixelY - tooltipRect.height - 10;
+                            
+                            // 确保tooltip不超出边界
+                            if (left + tooltipRect.width > bodyRect.width) {
+                                left = canvasRect.left + pointPixelX - tooltipRect.width - 10;
+                            }
                             if (left < 0) {
                                 left = 10;
                             }
-
-                            // 检查下边界
                             if (top < 0) {
-                                top = event.native.clientY - bodyRect.top + 10;
+                                top = canvasRect.top + pointPixelY + 10;
                             }
-
-                            // 检查上边界
                             if (top + tooltipRect.height > bodyRect.height) {
                                 top = bodyRect.height - tooltipRect.height - 10;
                             }
-
-                            tooltip.style.left = left + 'px';
-                            tooltip.style.top = top + 'px';
-
-                            // 检查是否靠近极值点
-                            let nearExtremePoint = false;
-                            for (const point of data.extremePoints) {
-                                const distance = Math.abs(point.x - dataX);
-                                if (distance < data.maxX * 0.02) { // 如果距离小于最大值的2%
-                                    nearExtremePoint = true;
-
-                                    // 移除current-point显示逻辑，只保留tooltip
-
-                                    // 直接使用极值点的值，不更新输入框和图表
-                                    const result = calculateMedicineFee(point.x);
-                                    tooltip.innerHTML = `
-                                        <table class="tooltip-table">
-                                            <tr><td>期望售价:</td><td>${formatPrice(point.x)}</td></tr>
-                                            <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
-                                            <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
-                                            <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
-                                        </table>
-                                    `;
-                                    break;
-                                }
-                            }
-
-                            if (!nearExtremePoint) {
-                                // 不再需要隐藏current-point
-                            }
-                        } else {
-                            document.getElementById('medicine-tooltip').style.display = 'none';
-                            // 不再需要隐藏current-point
                         }
+                    },
+                    onMouseLeave: () => {
+                        // 隐藏tooltip
+                        document.getElementById('medicine-tooltip').style.display = 'none';
                     }
                 }
             });
+
+            // 不再自动显示最优价格点
 
             // 添加图表选择区域功能
             const chartCanvas = document.getElementById('medicine-chart');
@@ -602,15 +697,60 @@
                     }
                 }
 
-                // 更新输入框和图表
-                medicinePriceInput.value = formatPrice(bestPrice);
-                updateMedicineChart(bestPrice);
+                // 不再显示最优价格点
 
                 // 延迟隐藏选择区域，让用户看到结果
                 setTimeout(() => {
                     medicineSelection.style.display = 'none';
                 }, 500);
             });
+        }
+
+        // 显示药品计算结果的函数
+        function showMedicineCalculationResult(price, income, label) {
+            // 创建或更新结果显示元素
+            let resultDiv = document.getElementById('medicine-chart-result');
+            if (!resultDiv) {
+                resultDiv = document.createElement('div');
+                resultDiv.id = 'medicine-chart-result';
+                resultDiv.dataset.isUserInput = 'false';
+                resultDiv.style.position = 'fixed';
+                resultDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                resultDiv.style.color = 'white';
+                resultDiv.style.padding = '10px';
+                resultDiv.style.borderRadius = '5px';
+                resultDiv.style.zIndex = '1000';
+                document.querySelector('#medicine .chart-container').appendChild(resultDiv);
+            }
+
+            // 更新显示内容
+            resultDiv.innerHTML = `
+                <div><strong>${label}</strong></div>
+                <div>价格: ${formatPrice(price)}</div>
+                <div>实际收入: ${formatPrice(income)}</div>
+            `;
+
+            // 设置位置 - 固定在图表左上角
+            const rect = document.getElementById('medicine-chart').getBoundingClientRect();
+            
+            // 使用固定定位，相对于视口
+            resultDiv.style.position = 'fixed';
+            resultDiv.style.left = (rect.left + 10) + 'px';
+            resultDiv.style.top = (rect.top + 10) + 'px';
+            resultDiv.style.transform = 'translate(0, 0)'; // 确保没有其他变换
+
+            // 确保元素可见
+            resultDiv.style.display = 'block';
+
+            // 如果是用户输入的结果，延长显示时间
+            const displayTime = label.includes('当前输入') ? 10000 : 5000;
+            
+            // 清除之前的定时器
+            if (resultDiv.hideTimer) {
+                clearTimeout(resultDiv.hideTimer);
+            }
+            
+            // 不再自动隐藏结果，常驻显示
         }
 
         // 初始化装备图表
@@ -726,102 +866,177 @@
                         }
                     },
                     onHover: (event, activeElements) => {
-                        if (activeElements.length > 0) {
-                            const canvasPosition = Chart.helpers.getRelativePosition(event, equipmentChart);
-                            let dataX = equipmentChart.scales.x.getValueForPixel(canvasPosition.x);
-                            const dataY = equipmentChart.scales.y.getValueForPixel(canvasPosition.y);
+                        const canvasPosition = Chart.helpers.getRelativePosition(event, equipmentChart);
+                        let dataX = equipmentChart.scales.x.getValueForPixel(canvasPosition.x);
+                        const dataY = equipmentChart.scales.y.getValueForPixel(canvasPosition.y);
 
-                            // 检查是否在最大值范围内
-                            const data = equipmentChart.data.datasets[0].data;
-                            const maxX = Math.max(...data.map(point => point.x));
-                            const maxXRange = maxX * 0.02; // 最大值2%的范围
-
-                            // 如果在最大值范围内，使用最大值
-                            if (Math.abs(dataX - maxX) < maxXRange) {
-                                dataX = maxX;
-                            }
-
+                        // 检查是否有用户输入的结果，如果有则调整tooltip位置避免重叠
+                        const resultDiv = document.getElementById('chart-result');
+                        if (resultDiv && resultDiv.dataset.isUserInput === 'true') {
+                            // 获取常驻结果的位置
+                            const resultRect = resultDiv.getBoundingClientRect();
+                            // 调整tooltip位置，避免与常驻结果重叠
                             const tooltip = document.getElementById('equipment-tooltip');
                             tooltip.style.display = 'block';
-                            const entries = parseInt(document.getElementById('equipment-entries').value);
-                            const basePriceInput = document.getElementById('equipment-base-price').value;
-                            const basePrice = parsePriceInput(basePriceInput);
-                            const result = calculateEquipmentFee(dataX, entries, basePrice);
-                            tooltip.innerHTML = `
-                                <table class="tooltip-table">
-                                    <tr><td>期望售价:</td><td>${formatPrice(dataX)}</td></tr>
-                                    <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
-                                    <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
-                                    <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
-                                </table>
-                            `;
+                            // 继续执行后续代码，显示tooltip
+                        }
 
-                            // 使用鼠标位置定位tooltip，并确保不超出body边界
-                            const tooltipRect = tooltip.getBoundingClientRect();
-                            const bodyRect = document.body.getBoundingClientRect();
+                        // 检查是否在最大值范围内
+                        const data = equipmentChart.data.datasets[0].data;
+                        const maxX = Math.max(...data.map(point => point.x));
+                        const maxXRange = maxX * 0.02; // 最大值2%的范围
 
-                            let left = event.native.clientX - bodyRect.left + 10;
-                            let top = event.native.clientY - bodyRect.top - tooltipRect.height - 10;
+                        // 如果在最大值范围内，使用最大值
+                        if (Math.abs(dataX - maxX) < maxXRange) {
+                            dataX = maxX;
+                        }
 
-                            // 检查右边界
-                            if (left + tooltipRect.width > bodyRect.width) {
-                                left = event.native.clientX - bodyRect.left - tooltipRect.width - 10;
+                        const tooltip = document.getElementById('equipment-tooltip');
+                        tooltip.style.display = 'block';
+                        const entries = parseInt(document.getElementById('equipment-entries').value);
+                        const basePriceInput = document.getElementById('equipment-base-price').value;
+                        const basePrice = parsePriceInput(basePriceInput);
+                        const result = calculateEquipmentFee(dataX, entries, basePrice);
+                        tooltip.innerHTML = `
+                            <table class="tooltip-table">
+                                <tr><td>期望售价:</td><td>${formatPrice(dataX)}</td></tr>
+                                <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
+                                <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
+                                <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
+                            </table>
+                        `;
+
+                        // 使用鼠标位置定位tooltip，并确保不超出body边界
+                        const tooltipRect = tooltip.getBoundingClientRect();
+                        const bodyRect = document.body.getBoundingClientRect();
+
+                        let left = event.native.clientX - bodyRect.left + 10;
+                        let top = event.native.clientY - bodyRect.top - tooltipRect.height - 10;
+
+                        // 如果有常驻结果显示，调整tooltip位置避免重叠
+                        if (resultDiv && resultDiv.dataset.isUserInput === 'true') {
+                            const resultRect = resultDiv.getBoundingClientRect();
+                            // 如果tooltip会与常驻结果重叠，则调整位置
+                            if (left < resultRect.right && left + tooltipRect.width > resultRect.left &&
+                                top < resultRect.bottom && top + tooltipRect.height > resultRect.top) {
+                                // 将tooltip移到常驻结果的右侧
+                                left = resultRect.right + 10;
+                                // 如果右侧超出边界，则移到下方
+                                if (left + tooltipRect.width > bodyRect.width) {
+                                    left = event.native.clientX - bodyRect.left - tooltipRect.width - 10;
+                                    // 如果还是超出边界，则移到常驻结果的下方
+                                    if (left < 0) {
+                                        left = resultRect.left;
+                                        top = resultRect.bottom + 10;
+                                    }
+                                }
                             }
+                        }
 
-                            // 检查左边界
+                        // 检查右边界
+                        if (left + tooltipRect.width > bodyRect.width) {
+                            left = event.native.clientX - bodyRect.left - tooltipRect.width - 10;
+                        }
+
+                        // 检查左边界
+                        if (left < 0) {
+                            left = 10;
+                        }
+
+                        // 检查下边界
+                        if (top < 0) {
+                            top = event.native.clientY - bodyRect.top + 10;
+                        }
+
+                        // 检查上边界
+                        if (top + tooltipRect.height > bodyRect.height) {
+                            top = bodyRect.height - tooltipRect.height - 10;
+                        }
+
+                        tooltip.style.left = left + 'px';
+                        tooltip.style.top = top + 'px';
+
+                        // 检查是否靠近极值点
+                        let nearExtremePoint = false;
+                        let extremePointData = null;
+                        const extremePoints = data.extremePoints || [];
+                        for (const point of extremePoints) {
+                            const distance = Math.abs(point.x - dataX);
+                            if (distance < 1000000) { // 如果距离小于100万
+                                nearExtremePoint = true;
+                                extremePointData = point;
+                                break;
+                            }
+                        }
+
+                        // 检查是否靠近最高点
+                        let nearHighestPoint = false;
+                        let highestPointData = null;
+                        const highestPoint = data.highestPoint;
+                        if (highestPoint && !nearExtremePoint) {
+                            const distance = Math.abs(highestPoint.x - dataX);
+                            if (distance < 1000000) { // 如果距离小于100万
+                                nearHighestPoint = true;
+                                highestPointData = highestPoint;
+                            }
+                        }
+
+                        // 如果靠近极值点或最高点，使用它们的值
+                        let displayDataX = dataX;
+                        if (nearExtremePoint) {
+                            displayDataX = extremePointData.x;
+                        } else if (nearHighestPoint) {
+                            displayDataX = highestPointData.x;
+                        }
+
+                        const equipmentEntries = parseInt(document.getElementById('equipment-entries').value);
+                        const equipmentBasePriceInput = document.getElementById('equipment-base-price').value;
+                        const equipmentBasePrice = parsePriceInput(equipmentBasePriceInput);
+                        const equipmentResult = calculateEquipmentFee(displayDataX, equipmentEntries, equipmentBasePrice);
+                        tooltip.innerHTML = `
+                            <table class="tooltip-table">
+                                <tr><td>期望售价:</td><td>${formatPrice(displayDataX)}</td></tr>
+                                <tr><td>手续费率:</td><td>${equipmentResult.feeRate.toFixed(2)}%</td></tr>
+                                <tr><td>手续费:</td><td>${formatPrice(equipmentResult.fee)}</td></tr>
+                                <tr><td>实际收入:</td><td>${formatPrice(equipmentResult.actualIncome)}</td></tr>
+                                ${nearExtremePoint ? '<tr><td colspan="2" style="text-align:center;color:#FF6384;font-weight:bold;">极值点</td></tr>' : ''}
+                                ${nearHighestPoint ? '<tr><td colspan="2" style="text-align:center;color:#FF9F40;font-weight:bold;">最高点</td></tr>' : ''}
+                            </table>
+                        `;
+
+                        // 如果靠近极值点或最高点，调整tooltip位置
+                        if (nearExtremePoint || nearHighestPoint) {
+                            const point = nearExtremePoint ? extremePointData : highestPointData;
+                            const pointPixelX = equipmentChart.scales.x.getPixelForValue(point.x);
+                            const pointPixelY = equipmentChart.scales.y.getPixelForValue(point.y);
+                            const canvasRect = equipmentChart.canvas.getBoundingClientRect();
+                            
+                            left = canvasRect.left + pointPixelX + 10;
+                            top = canvasRect.top + pointPixelY - tooltipRect.height - 10;
+                            
+                            // 确保tooltip不超出边界
+                            if (left + tooltipRect.width > bodyRect.width) {
+                                left = canvasRect.left + pointPixelX - tooltipRect.width - 10;
+                            }
                             if (left < 0) {
                                 left = 10;
                             }
-
-                            // 检查下边界
                             if (top < 0) {
-                                top = event.native.clientY - bodyRect.top + 10;
+                                top = canvasRect.top + pointPixelY + 10;
                             }
-
-                            // 检查上边界
                             if (top + tooltipRect.height > bodyRect.height) {
                                 top = bodyRect.height - tooltipRect.height - 10;
                             }
-
-                            tooltip.style.left = left + 'px';
-                            tooltip.style.top = top + 'px';
-
-                            // 检查是否靠近极值点
-                            let nearExtremePoint = false;
-                            for (const point of data.extremePoints) {
-                                const distance = Math.abs(point.x - dataX);
-                                if (distance < data.maxX * 0.02) { // 如果距离小于最大值的2%
-                                    nearExtremePoint = true;
-
-                                    // 移除current-point显示逻辑，只保留tooltip
-
-                                    // 直接使用极值点的值，不更新输入框和图表
-                                    const entries = parseInt(document.getElementById('equipment-entries').value);
-                                    const basePriceInput = document.getElementById('equipment-base-price').value;
-                                    const basePrice = parsePriceInput(basePriceInput);
-                                    const result = calculateEquipmentFee(point.x, entries, basePrice);
-                                    tooltip.innerHTML = `
-                                        <table class="tooltip-table">
-                                            <tr><td>期望售价:</td><td>${formatPrice(point.x)}</td></tr>
-                                            <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
-                                            <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
-                                            <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
-                                        </table>
-                                    `;
-                                    break;
-                                }
-                            }
-
-                            if (!nearExtremePoint) {
-                                // 不再需要隐藏current-point
-                            }
-                        } else {
-                            document.getElementById('equipment-tooltip').style.display = 'none';
-                            // 不再需要隐藏current-point
                         }
+                    },
+                    onMouseLeave: () => {
+                        // 隐藏tooltip
+                        document.getElementById('equipment-tooltip').style.display = 'none';
                     }
                 }
             });
+
+            // 不再自动显示最优价格点
 
             // 添加图表选择区域功能
             const chartCanvas = document.getElementById('equipment-chart');
@@ -892,10 +1107,6 @@
                     }
                 }
 
-                // 更新输入框和图表
-                equipmentPriceInput.value = formatPrice(bestPrice);
-                updateEquipmentChart(bestPrice);
-
                 // 延迟隐藏选择区域，让用户看到结果
                 setTimeout(() => {
                     equipmentSelection.style.display = 'none';
@@ -928,7 +1139,17 @@
                     currentPointDataset.data = [{x: result.price, y: result.actualIncome}];
                 }
 
-                medicineChart.update();
+                medicineChart.update('none'); // 使用'none'模式避免动画，确保立即更新
+            }
+            
+            // 显示计算结果
+            if (result && result.price && result.actualIncome) {
+                showMedicineCalculationResult(result.price, result.actualIncome, '当前输入价格');
+                // 标记为用户输入的结果
+                const resultDiv = document.getElementById('medicine-chart-result');
+                if (resultDiv) {
+                    resultDiv.dataset.isUserInput = 'true';
+                }
             }
         }
 
@@ -961,16 +1182,76 @@
                 }
 
 
+                equipmentChart.update('none'); // 使用'none'模式避免动画，确保立即更新
             }
+            
+            // 显示计算结果
+            if (result && result.price && result.actualIncome) {
+                showCalculationResult(result.price, result.actualIncome, '当前输入价格');
+                // 标记为用户输入的结果
+                const resultDiv = document.getElementById('chart-result');
+                if (resultDiv) {
+                    resultDiv.dataset.isUserInput = 'true';
+                }
+            }
+        }
+
+        // 显示计算结果的函数
+        function showCalculationResult(price, income, label) {
+            // 创建或更新结果显示元素
+            let resultDiv = document.getElementById('chart-result');
+            if (!resultDiv) {
+                resultDiv = document.createElement('div');
+                resultDiv.id = 'chart-result';
+                resultDiv.dataset.isUserInput = 'false';
+                resultDiv.style.position = 'fixed';
+                resultDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                resultDiv.style.color = 'white';
+                resultDiv.style.padding = '10px';
+                resultDiv.style.borderRadius = '5px';
+                resultDiv.style.zIndex = '1000';
+                document.querySelector('#equipment .chart-container').appendChild(resultDiv);
+            }
+
+            // 更新显示内容
+            resultDiv.innerHTML = `
+                <div><strong>${label}</strong></div>
+                <div>价格: ${formatPrice(price)}</div>
+                <div>实际收入: ${formatPrice(income)}</div>
+            `;
+
+            // 设置位置 - 固定在图表左上角
+            const rect = document.getElementById('equipment-chart').getBoundingClientRect();
+            
+            // 使用固定定位，相对于视口
+            resultDiv.style.position = 'fixed';
+            resultDiv.style.left = (rect.left + 10) + 'px';
+            resultDiv.style.top = (rect.top + 10) + 'px';
+            resultDiv.style.transform = 'translate(0, 0)'; // 确保没有其他变换
+
+            // 确保元素可见
+            resultDiv.style.display = 'block';
+
+            // 如果是用户输入的结果，延长显示时间
+            const displayTime = label.includes('当前输入') ? 10000 : 5000;
+            
+            // 清除之前的定时器
+            if (resultDiv.hideTimer) {
+                clearTimeout(resultDiv.hideTimer);
+            }
+            
+            // 不再自动隐藏结果，常驻显示
         }
 
         // 更新表格数据
         function updateDataTable(data) {
             const tbody = document.getElementById('equipment-data-points');
+            if (!tbody) return; // 如果元素不存在，直接返回
             tbody.innerHTML = '';
             
             // 添加极值点
-            data.extremePoints.forEach((point, index) => {
+            const extremePoints = data.extremePoints || [];
+            extremePoints.forEach((point, index) => {
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td>极值点 ${index + 1}</td>
@@ -1003,8 +1284,8 @@
                 const data = generateEquipmentChartData(entries, basePrice);
 
                 // 更新图表数据
-                equipmentChart.data.datasets[0].data = data.chartData;
-                equipmentChart.data.datasets[1].data = data.extremePoints;
+                equipmentChart.data.datasets[0].data = data.chartData || [];
+                equipmentChart.data.datasets[1].data = data.extremePoints || [];
                 equipmentChart.data.datasets[2].data = data.highestPoint ? [data.highestPoint] : [];
                 equipmentChart.options.scales.x.max = data.maxX;
                 
@@ -1035,8 +1316,8 @@
                 const data = generateEquipmentChartData(entries, basePrice);
 
                 // 更新图表数据
-                equipmentChart.data.datasets[0].data = data.chartData;
-                equipmentChart.data.datasets[1].data = data.extremePoints;
+                equipmentChart.data.datasets[0].data = data.chartData || [];
+                equipmentChart.data.datasets[1].data = data.extremePoints || [];
                 equipmentChart.data.datasets[2].data = data.highestPoint ? [data.highestPoint] : [];
                 equipmentChart.options.scales.x.max = data.maxX;
                 
@@ -1060,6 +1341,8 @@
 
         // 初始化药品图表
         initMedicineChart();
+        // 初始化装备图表
+        initEquipmentChart();
 
         // 添加药品价格输入监听，实现实时计算
         document.getElementById('medicine-price').addEventListener('input', function() {

@@ -168,12 +168,6 @@ body {
             margin-top: 20px;
             padding: 0 20px;
             box-sizing: border-box;
-            overflow: hidden;
-        }
-        
-        .chart-container canvas {
-            max-height: 100% !important;
-            height: 100% !important;
         }
         .tooltip {
             position: absolute;
