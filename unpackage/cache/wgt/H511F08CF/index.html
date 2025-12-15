@@ -397,8 +397,8 @@
                             },
                             ticks: {
                                 callback: function(value) {
-                                    // 显示所有合理的y轴刻度值
-                                    if (value >= 0) {
+                                    // 只显示在实际数据范围内的刻度
+                                    if (value >= 0 && value <= data.maxX) {
                                         return formatPrice(value);
                                     }
                                     return '';
@@ -419,15 +419,19 @@
                                 display: true,
                                 text: '实际收入'
                             },
-                            maxTicksLimit: 6,
                             ticks: {
                                 callback: function(value) {
-                                    // 显示所有合理的y轴刻度值
-                                    if (value >= 0) {
+                                    // 只显示在实际数据范围内的刻度
+                                    if (value >= 0 && value <= data.maxX) {
                                         return formatPrice(value);
                                     }
                                     return '';
                                 }
+                            },
+                            // 添加一些边距，使图表不会紧贴边缘
+                            afterBuildTicks: function(scale) {
+                                const maxValue = Math.max(...data.chartData.map(d => d.y));
+                                scale.max = maxValue * 1.1; // 增加10%的上边距
                             }
                         }
                     },
@@ -678,8 +682,8 @@
                             },
                             ticks: {
                                 callback: function(value) {
-                                    // 显示所有合理的y轴刻度值
-                                    if (value >= 0) {
+                                    // 只显示在实际数据范围内的刻度
+                                    if (value >= 0 && value <= data.maxX) {
                                         return formatPrice(value);
                                     }
                                     return '';
@@ -700,15 +704,19 @@
                                 display: true,
                                 text: '实际收入'
                             },
-                            maxTicksLimit: 6,
                             ticks: {
                                 callback: function(value) {
-                                    // 显示所有合理的y轴刻度值
-                                    if (value >= 0) {
+                                    // 只显示在实际数据范围内的刻度
+                                    if (value >= 0 && value <= data.maxX) {
                                         return formatPrice(value);
                                     }
                                     return '';
                                 }
+                            },
+                            // 添加一些边距，使图表不会紧贴边缘
+                            afterBuildTicks: function(scale) {
+                                const maxValue = Math.max(...data.chartData.map(d => d.y));
+                                scale.max = maxValue * 1.1; // 增加10%的上边距
                             }
                         }
                     },
@@ -960,7 +968,7 @@
                     currentPointDataset.data = [{x: result.price, y: result.actualIncome}];
                 }
 
-
+                equipmentChart.update();
             }
         }
 
@@ -1007,10 +1015,6 @@
                 equipmentChart.data.datasets[1].data = data.extremePoints;
                 equipmentChart.data.datasets[2].data = data.highestPoint ? [data.highestPoint] : [];
                 equipmentChart.options.scales.x.max = data.maxX;
-                
-                // 计算并设置y轴最大值
-                const maxYValue = Math.max(...data.chartData.map(d => d.y));
-                equipmentChart.options.scales.y.max = maxYValue * 1.2; // 增加20%的上边距
 
                 // 移除当前点
                 const currentPointIndex = equipmentChart.data.datasets.findIndex(dataset => dataset.label === '当前输入');
@@ -1018,7 +1022,6 @@
                     equipmentChart.data.datasets.splice(currentPointIndex, 1);
                 }
 
-                // 更新图表
                 equipmentChart.update();
 
                 // 更新表格数据
@@ -1039,10 +1042,6 @@
                 equipmentChart.data.datasets[1].data = data.extremePoints;
                 equipmentChart.data.datasets[2].data = data.highestPoint ? [data.highestPoint] : [];
                 equipmentChart.options.scales.x.max = data.maxX;
-                
-                // 计算并设置y轴最大值
-                const maxYValue = Math.max(...data.chartData.map(d => d.y));
-                equipmentChart.options.scales.y.max = maxYValue * 1.2; // 增加20%的上边距
 
                 // 移除当前点
                 const currentPointIndex = equipmentChart.data.datasets.findIndex(dataset => dataset.label === '当前输入');
@@ -1050,7 +1049,6 @@
                     equipmentChart.data.datasets.splice(currentPointIndex, 1);
                 }
 
-                // 更新图表
                 equipmentChart.update();
 
                 // 更新表格数据

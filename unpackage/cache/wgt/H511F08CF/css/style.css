@@ -1,0 +1,251 @@
+body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        .app-title {
+            text-align: center;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        /* 移除了container样式，内容直接放在body中 */
+        /* h1样式已移至.app-title */
+        /* 移动端菜单样式 */
+        .mobile-menu-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .menu-toggle {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            z-index: 100;
+        }
+        .menu-toggle span {
+            display: block;
+            height: 3px;
+            width: 100%;
+            background-color: #333;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .mobile-menu {
+            position: absolute;
+            top: 40px;
+            left: 0;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 180px;
+            display: none;
+            z-index: 99;
+            overflow: hidden;
+        }
+        .mobile-menu.show {
+            display: block;
+        }
+        .mobile-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .mobile-menu-item:last-child {
+            border-bottom: none;
+        }
+        .mobile-menu-item:hover {
+            background-color: #f5f5f5;
+        }
+        .mobile-menu-item.active {
+            background-color: #e6f7ff;
+            color: #1890ff;
+        }
+        /* 原有tab样式保留，但隐藏 */
+        .tabs {
+            display: none;
+        }
+        .tab-content {
+            display: none;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 0 0 5px 5px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* 原有输入组样式保留，但隐藏 */
+        .input-group {
+            display: none;
+        }
+
+        /* 新的输入行样式 */
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+
+        .input-item {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            letter-spacing: 1px; /* 添加字符间隔 */
+            max-width: 9ch; /* 限制宽度为9个字符 */
+        }
+
+        /* 为装备输入框添加特殊样式，确保它们在一行中宽度合适 */
+        .input-item input, .input-item select {
+            width: 100%;
+            max-width: 9ch;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .markdown-content {
+            background-color: #f9f9f9;
+            border-left: 4px solid #1890ff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .markdown-content h3 {
+            margin-top: 0;
+            color: #1890ff;
+            font-size: 18px;
+        }
+
+        .markdown-content ul {
+            margin-bottom: 0;
+            padding-left: 20px;
+        }
+
+        .markdown-content li {
+            margin-bottom: 8px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+            padding: 0 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        
+        .chart-container canvas {
+            max-height: 100% !important;
+            height: 100% !important;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            display: none;
+        }
+        /* 移除了current-point样式 */
+
+        .chart-selection {
+            position: absolute;
+            background-color: rgba(24, 144, 255, 0.2);
+            border: 1px solid #1890ff;
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+        }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .result-table th, .result-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .result-table th {
+            background-color: #f2f2f2;
+        }
+        .data-table {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .data-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+        }
+        .tooltip-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .tooltip-table td {
+            padding: 4px 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .tooltip-table tr:last-child td {
+            border-bottom: none;
+        }
+        #medicine-tooltip, #equipment-tooltip {
+            position: fixed;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            max-width: 250px;
+            /* 添加以下属性确保tooltip不会超出屏幕 */
+            max-height: 80vh;
+            overflow-y: auto;
+        }
