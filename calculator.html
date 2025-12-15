@@ -1,0 +1,1327 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手续费计算器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 15px;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        .app-title {
+            text-align: center;
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        /* 移除了container样式，内容直接放在body中 */
+        /* h1样式已移至.app-title */
+        /* 移动端菜单样式 */
+        .mobile-menu-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .menu-toggle {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            z-index: 100;
+        }
+        .menu-toggle span {
+            display: block;
+            height: 3px;
+            width: 100%;
+            background-color: #333;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .mobile-menu {
+            position: absolute;
+            top: 40px;
+            left: 0;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 180px;
+            display: none;
+            z-index: 99;
+            overflow: hidden;
+        }
+        .mobile-menu.show {
+            display: block;
+        }
+        .mobile-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .mobile-menu-item:last-child {
+            border-bottom: none;
+        }
+        .mobile-menu-item:hover {
+            background-color: #f5f5f5;
+        }
+        .mobile-menu-item.active {
+            background-color: #e6f7ff;
+            color: #1890ff;
+        }
+        /* 原有tab样式保留，但隐藏 */
+        .tabs {
+            display: none;
+        }
+        .tab-content {
+            display: none;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 0 0 5px 5px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* 原有输入组样式保留，但隐藏 */
+        .input-group {
+            display: none;
+        }
+
+        /* 新的输入行样式 */
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+
+        .input-item {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            letter-spacing: 1px; /* 添加字符间隔 */
+            max-width: 9ch; /* 限制宽度为9个字符 */
+        }
+
+        /* 为装备输入框添加特殊样式，确保它们在一行中宽度合适 */
+        .input-item input, .input-item select {
+            width: 100%;
+            max-width: 9ch;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .markdown-content {
+            background-color: #f9f9f9;
+            border-left: 4px solid #1890ff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .markdown-content h3 {
+            margin-top: 0;
+            color: #1890ff;
+            font-size: 18px;
+        }
+
+        .markdown-content ul {
+            margin-bottom: 0;
+            padding-left: 20px;
+        }
+
+        .markdown-content li {
+            margin-bottom: 8px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+        .tooltip {
+            position: absolute;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            pointer-events: none;
+            display: none;
+        }
+        /* 移除了current-point样式 */
+
+        .chart-selection {
+            position: absolute;
+            background-color: rgba(24, 144, 255, 0.2);
+            border: 1px solid #1890ff;
+            pointer-events: none;
+            z-index: 5;
+            display: none;
+        }
+        .result-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .result-table th, .result-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .result-table th {
+            background-color: #f2f2f2;
+        }
+        .data-table {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .data-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+        }
+        .tooltip-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .tooltip-table td {
+            padding: 4px 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .tooltip-table tr:last-child td {
+            border-bottom: none;
+        }
+        #medicine-tooltip, #equipment-tooltip {
+            position: fixed;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            max-width: 250px;
+            /* 添加以下属性确保tooltip不会超出屏幕 */
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+        <h1 class="app-title">地铁逃生交易行小助手</h1>
+        <div class="markdown-content">
+            <h3>使用说明</h3>
+            <ul>
+                <li>支持输入格式：10万、1千万、1000000等</li>
+                <li>药品：根据售价自动计算手续费和实际收入</li>
+                <li>装备：根据售价、回收价和词条数计算最优交易方案</li>
+                <li>图表中显示不同价格区间的手续费率和实际收入</li>
+            </ul>
+        </div>
+
+        <div class="mobile-menu-container">
+            <div class="menu-toggle" onclick="toggleMobileMenu()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="mobile-menu" id="mobile-menu">
+                <div class="mobile-menu-item active" onclick="switchTab('medicine'); toggleMobileMenu()">
+                    药品
+                </div>
+                <div class="mobile-menu-item" onclick="switchTab('equipment'); toggleMobileMenu()">
+                    装备
+                </div>
+            </div>
+        </div>
+
+        <div id="medicine" class="tab-content active">
+            <div class="chart-container">
+                <canvas id="medicine-chart"></canvas>
+                <div id="medicine-tooltip" class="tooltip"></div>
+                <div id="medicine-selection" class="chart-selection"></div>
+            </div>
+
+            <div class="input-row">
+                <div class="input-item">
+                    <label for="medicine-price">期望售价</label>
+                    <input type="text" id="medicine-price" placeholder="例如: 10万 或 1000000">
+                </div>
+            </div>
+        </div>
+
+        <div id="equipment" class="tab-content">
+            <div class="chart-container">
+                <canvas id="equipment-chart"></canvas>
+                <div id="equipment-tooltip" class="tooltip"></div>
+                <div id="equipment-selection" class="chart-selection"></div>
+            </div>
+
+            <div class="input-row">
+                <div class="input-item">
+                    <label for="equipment-price">期望售价</label>
+                    <input type="text" id="equipment-price" placeholder="例如: 10万 或 1000000">
+                </div>
+                <div class="input-item">
+                    <label for="equipment-base-price">统一回收价</label>
+                    <input type="text" id="equipment-base-price" placeholder="例如: 27万 或 270000" value="27万">
+                </div>
+                <div class="input-item">
+                    <label for="equipment-entries">词条数</label>
+                    <select id="equipment-entries">
+                        <option value="1">1词条</option>
+                        <option value="2">2词条</option>
+                        <option value="3">3词条</option>
+                        <option value="4">4词条</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    <script>
+        // 药品手续费规则
+        const medicineFees = [
+            {price: 0, rate: 4},
+            {price: 200000, rate: 6},
+            {price: 300000, rate: 8},
+            {price: 400000, rate: 12},
+            {price: 500000, rate: 15},
+            {price: 600000, rate: 23},
+            {price: 700000, rate: 30},
+            {price: 800000, rate: 40},
+            {price: 900000, rate: 50}
+        ];
+
+        // 装备手续费规则
+        const equipmentFees = [
+            {"1词条": [0, 5], "2词条": [0, 10], "3词条": [0, 20], "4词条": [0, 40], "rate": 4},
+            {"1词条": [5, 7.5], "2词条": [10, 15], "3词条": [20, 40], "4词条": [40, 80], "rate": 6},
+            {"1词条": [7.5, 10], "2词条": [15, 20], "3词条": null, "4词条": null, "rate": 8},
+            {"1词条": [10, 12.5], "2词条": [20, 25], "3词条": [40, 80], "4词条": [80, 95], "rate": 12},
+            {"1词条": [12.5, 15], "2词条": [25, 30], "3词条": null, "4词条": [95, 120], "rate": 15},
+            {"1词条": [15, 17.5], "2词条": [30, 35], "3词条": null, "4词条": [120, 140], "rate": 23},
+            {"1词条": [17.5, 20], "2词条": [35, 40], "3词条": null, "4词条": [140, 160], "rate": 30},
+            {"1词条": [20, 22.5], "2词条": [40, 45], "3词条": [80, 90], "4词条": [160, 180], "rate": 40},
+            {"1词条": [22.5, 25], "2词条": [45, 50], "3词条": [90, 100], "4词条": [180, Infinity], "rate": 50},
+            {"1词条": [25, Infinity], "2词条": [50, Infinity], "3词条": [100, Infinity], "4词条": null, "rate": 80}
+        ];
+
+        let medicineChart = null;
+        let equipmentChart = null;
+
+        // 切换标签页
+        function switchTab(tabName) {
+            // 更新标签样式
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // 激活选中的标签
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            document.getElementById(tabName).classList.add('active');
+
+            // 更新移动菜单项状态
+            const mobileMenuItems = document.querySelectorAll('.mobile-menu-item');
+            mobileMenuItems.forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // 找到对应的移动菜单项并设置为活动状态
+            mobileMenuItems.forEach(item => {
+                if (item.getAttribute('onclick').includes(tabName)) {
+                    item.classList.add('active');
+                }
+            });
+
+            // 初始化图表
+            if (tabName === 'medicine' && !medicineChart) {
+                initMedicineChart();
+            } else if (tabName === 'equipment' && !equipmentChart) {
+                initEquipmentChart();
+            }
+        }
+
+        // 切换移动菜单显示状态
+        function toggleMobileMenu() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('show');
+        }
+
+        // 点击页面其他地方关闭菜单
+        document.addEventListener('click', function(event) {
+            const mobileMenuContainer = document.querySelector('.mobile-menu-container');
+            if (!mobileMenuContainer.contains(event.target)) {
+                const mobileMenu = document.getElementById('mobile-menu');
+                if (mobileMenu.classList.contains('show')) {
+                    mobileMenu.classList.remove('show');
+                }
+            }
+        });
+
+        // 解析价格输入
+        function parsePriceInput(text) {
+            if (!text) return 0;
+
+            text = text.trim();
+
+            if (text.includes('千万')) {
+                const num = parseFloat(text.replace('千万', ''));
+                return num * 10000000;
+            } else if (text.includes('万')) {
+                const num = parseFloat(text.replace('万', ''));
+                return num * 10000;
+            } else {
+                try {
+                    return parseFloat(text);
+                } catch (e) {
+                    return 0;
+                }
+            }
+        }
+
+        // 格式化价格显示
+        function formatPrice(price) {
+            if (price >= 100000000) {
+                return (price / 100000000).toFixed(2) + '亿';
+            } else if (price >= 10000000) {
+                return (price / 10000000).toFixed(2) + '千万';
+            } else if (price >= 10000) {
+                return (price / 10000).toFixed(2) + '万';
+            } else {
+                return price.toFixed(2);
+            }
+        }
+
+        // 计算药品手续费
+        function calculateMedicineFee(price) {
+            let feeRate = 0;
+            for (const fee of medicineFees) {
+                if (price >= fee.price) {
+                    feeRate = fee.rate;
+                }
+            }
+
+            const fee = price * feeRate / 100;
+            const actualIncome = price - fee;
+
+            return {
+                price: price,
+                feeRate: feeRate,
+                fee: fee,
+                actualIncome: actualIncome
+            };
+        }
+
+        // 计算装备手续费
+        function calculateEquipmentFee(price, entries, basePrice) {
+            let feeRate = 0;
+            const entriesKey = `${entries}词条`;
+            const multiplier = price / basePrice;
+
+            for (const fee of equipmentFees) {
+                const rangeValues = fee[entriesKey];
+                if (rangeValues && multiplier >= rangeValues[0] && multiplier <= rangeValues[1]) {
+                    feeRate = fee.rate;
+                    break;
+                }
+            }
+
+            // 手续费计算：手续费=fees.locate(期望售价/统一回收价)*期望售价
+            const fee = price * feeRate / 100;
+            const actualIncome = price - fee;
+
+            return {
+                multiplier: multiplier,
+                entries: entries,
+                price: price,
+                feeRate: feeRate,
+                fee: fee,
+                actualIncome: actualIncome
+            };
+        }
+
+        // 生成药品图表数据
+        function generateMedicineChartData() {
+            const chartData = [];
+            const maxPrice = 1000000; // 100万
+
+            for (let price = 0; price <= maxPrice; price += 10000) { // 每1万一个点
+                const result = calculateMedicineFee(price);
+                chartData.push({
+                    x: price,
+                    y: result.actualIncome,
+                    feeRate: result.feeRate
+                });
+            }
+
+            // 添加转折点
+            const turningPoints = [];
+            for (const fee of medicineFees) {
+                if (fee.price <= maxPrice) {
+                    const result = calculateMedicineFee(fee.price);
+                    turningPoints.push({
+                        x: fee.price,
+                        y: result.actualIncome,
+                        feeRate: result.feeRate
+                    });
+                }
+            }
+
+            return {
+                chartData: chartData,
+                turningPoints: turningPoints,
+                maxX: maxPrice
+            };
+        }
+
+        // 生成装备图表数据
+        function generateEquipmentChartData(entries, basePrice) {
+            const chartData = [];
+            const maxPrice = 50000000; // 固定最大价格5000万
+            const step = 100000; // 每10万一个点
+
+            for (let price = 0; price <= maxPrice; price += step) {
+                const result = calculateEquipmentFee(price, entries, basePrice);
+                chartData.push({
+                    x: result.price,
+                    y: result.actualIncome,
+                    feeRate: result.feeRate
+                });
+            }
+
+            // 添加极值点（手续费率变化点）
+            const extremePoints = [];
+            const entriesKey = `${entries}词条`;
+            const maxMultiplier = maxPrice / basePrice;
+            let lastFeeRate = 0;
+
+            // 找出手续费率变化的点
+            for (const fee of equipmentFees) {
+                const rangeValues = fee[entriesKey];
+                if (rangeValues && rangeValues[0] < maxMultiplier) {
+                    // 检查手续费率是否变化
+                    if (fee.rate !== lastFeeRate) {
+                        // 取区间左端点作为极值点
+                        const leftPoint = Math.max(rangeValues[0], 0);
+                        const price = basePrice * leftPoint;
+                        const result = calculateEquipmentFee(price, entries, basePrice);
+                        extremePoints.push({
+                            x: result.price,
+                            y: result.actualIncome,
+                            feeRate: result.feeRate
+                        });
+                        lastFeeRate = fee.rate;
+                    }
+                }
+            }
+
+            // 找出最高点
+            let highestPoint = null;
+            if (chartData.length > 0) {
+                highestPoint = chartData.reduce((max, point) => 
+                    point.y > max.y ? point : max, chartData[0]);
+            }
+
+            return {
+                chartData: chartData,
+                extremePoints: extremePoints,
+                highestPoint: highestPoint,
+                maxX: maxPrice
+            };
+        }
+
+        // 初始化药品图表
+        function initMedicineChart() {
+            const ctx = document.getElementById('medicine-chart').getContext('2d');
+            const data = generateMedicineChartData();
+            const medicineSelection = document.getElementById('medicine-selection');
+            const medicinePriceInput = document.getElementById('medicine-price');
+
+            // 选择区域相关变量
+            let isSelecting = false;
+            let selectionStart = { x: 0, y: 0 };
+            let selectionEnd = { x: 0, y: 0 };
+
+            medicineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: '实际收入',
+                            data: data.chartData,
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            fill: true,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            // 确保线条只在有效数据范围内绘制
+                            spanGaps: false,
+                            // 设置数据边界
+                            xAxisID: 'x'
+                        },
+                        {
+                            label: '极值点',
+                            data: data.extremePoints,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 1)',
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            showLine: false
+                        },
+                        {
+                            label: '最高点',
+                            data: data.highestPoint ? [data.highestPoint] : [],
+                            borderColor: 'rgba(255, 159, 64, 1)',
+                            backgroundColor: 'rgba(255, 159, 64, 1)',
+                            pointRadius: 10,
+                            pointHoverRadius: 12,
+                            pointStyle: 'circle',
+                            showLine: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: '期望售价'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    // 只显示在实际数据范围内的刻度
+                                    if (value >= 0 && value <= data.maxX) {
+                                        return formatPrice(value);
+                                    }
+                                    return '';
+                                }
+                            },
+                            // 扩展显示区域，使用5%的范围作为边距
+                            min: -data.maxX * 0.05,
+                            max: data.maxX * 1.05,
+                            // 添加一些边距，使图表不会紧贴边缘
+                            afterBuildTicks: function(scale) {
+                                scale.ticks = scale.ticks.map(function(tick) {
+                                    return tick;
+                                });
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '实际收入'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    // 只显示在实际数据范围内的刻度
+                                    if (value >= 0 && value <= data.maxX) {
+                                        return formatPrice(value);
+                                    }
+                                    return '';
+                                }
+                            },
+                            // 添加一些边距，使图表不会紧贴边缘
+                            afterBuildTicks: function(scale) {
+                                const maxValue = Math.max(...data.chartData.map(d => d.y));
+                                scale.max = maxValue * 1.1; // 增加10%的上边距
+                            }
+                        }
+                    },
+                    layout: {
+                        padding: {
+                            left: 10,
+                            right: 20,
+                            top: 10,
+                            bottom: 10
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            enabled: false // 禁用Chart.js默认的tooltip
+                        }
+                    },
+                    onHover: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const canvasPosition = Chart.helpers.getRelativePosition(event, medicineChart);
+                            let dataX = medicineChart.scales.x.getValueForPixel(canvasPosition.x);
+                            const dataY = medicineChart.scales.y.getValueForPixel(canvasPosition.y);
+
+                            // 检查是否在最大值范围内
+                            const data = medicineChart.data.datasets[0].data;
+                            const maxX = Math.max(...data.map(point => point.x));
+                            const maxXRange = maxX * 0.02; // 最大值2%的范围
+
+                            // 如果在最大值范围内，使用最大值
+                            if (Math.abs(dataX - maxX) < maxXRange) {
+                                dataX = maxX;
+                            }
+
+                            const tooltip = document.getElementById('medicine-tooltip');
+                            tooltip.style.display = 'block';
+                            const result = calculateMedicineFee(dataX);
+                            tooltip.innerHTML = `
+                                <table class="tooltip-table">
+                                    <tr><td>期望售价:</td><td>${formatPrice(dataX)}</td></tr>
+                                    <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
+                                    <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
+                                    <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
+                                </table>
+                            `;
+
+                            // 使用鼠标位置定位tooltip，并确保不超出body边界
+                            const tooltipRect = tooltip.getBoundingClientRect();
+                            const bodyRect = document.body.getBoundingClientRect();
+
+                            let left = event.native.clientX - bodyRect.left + 10;
+                            let top = event.native.clientY - bodyRect.top - tooltipRect.height - 10;
+
+                            // 检查右边界
+                            if (left + tooltipRect.width > bodyRect.width) {
+                                left = event.native.clientX - bodyRect.left - tooltipRect.width - 10;
+                            }
+
+                            // 检查左边界
+                            if (left < 0) {
+                                left = 10;
+                            }
+
+                            // 检查下边界
+                            if (top < 0) {
+                                top = event.native.clientY - bodyRect.top + 10;
+                            }
+
+                            // 检查上边界
+                            if (top + tooltipRect.height > bodyRect.height) {
+                                top = bodyRect.height - tooltipRect.height - 10;
+                            }
+
+                            tooltip.style.left = left + 'px';
+                            tooltip.style.top = top + 'px';
+
+                            // 检查是否靠近极值点
+                            let nearExtremePoint = false;
+                            for (const point of data.extremePoints) {
+                                const distance = Math.abs(point.x - dataX);
+                                if (distance < data.maxX * 0.02) { // 如果距离小于最大值的2%
+                                    nearExtremePoint = true;
+
+                                    // 移除current-point显示逻辑，只保留tooltip
+
+                                    // 直接使用极值点的值，不更新输入框和图表
+                                    const result = calculateMedicineFee(point.x);
+                                    tooltip.innerHTML = `
+                                        <table class="tooltip-table">
+                                            <tr><td>期望售价:</td><td>${formatPrice(point.x)}</td></tr>
+                                            <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
+                                            <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
+                                            <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
+                                        </table>
+                                    `;
+                                    break;
+                                }
+                            }
+
+                            if (!nearExtremePoint) {
+                                // 不再需要隐藏current-point
+                            }
+                        } else {
+                            document.getElementById('medicine-tooltip').style.display = 'none';
+                            // 不再需要隐藏current-point
+                        }
+                    }
+                }
+            });
+
+            // 添加图表选择区域功能
+            const chartCanvas = document.getElementById('medicine-chart');
+
+            chartCanvas.addEventListener('mousedown', function(e) {
+                isSelecting = true;
+                const rect = chartCanvas.getBoundingClientRect();
+                selectionStart.x = e.clientX - rect.left;
+                selectionStart.y = e.clientY - rect.top;
+                selectionEnd.x = selectionStart.x;
+                selectionEnd.y = selectionStart.y;
+
+                medicineSelection.style.display = 'block';
+                medicineSelection.style.left = selectionStart.x + 'px';
+                medicineSelection.style.top = selectionStart.y + 'px';
+                medicineSelection.style.width = '0px';
+                medicineSelection.style.height = '0px';
+            });
+
+            chartCanvas.addEventListener('mousemove', function(e) {
+                if (!isSelecting) return;
+
+                const rect = chartCanvas.getBoundingClientRect();
+                selectionEnd.x = e.clientX - rect.left;
+                selectionEnd.y = e.clientY - rect.top;
+
+                const left = Math.min(selectionStart.x, selectionEnd.x);
+                const top = Math.min(selectionStart.y, selectionEnd.y);
+                const width = Math.abs(selectionEnd.x - selectionStart.x);
+                const height = Math.abs(selectionEnd.y - selectionStart.y);
+
+                medicineSelection.style.left = left + 'px';
+                medicineSelection.style.top = top + 'px';
+                medicineSelection.style.width = width + 'px';
+                medicineSelection.style.height = height + 'px';
+            });
+
+            chartCanvas.addEventListener('mouseup', function(e) {
+                if (!isSelecting) return;
+                isSelecting = false;
+
+                // 计算选择区域对应的价格范围
+                const xScale = medicineChart.scales.x;
+                const yScale = medicineChart.scales.y;
+
+                const startX = xScale.getValueForPixel(selectionStart.x);
+                const endX = xScale.getValueForPixel(selectionEnd.x);
+                const startY = yScale.getValueForPixel(selectionStart.y);
+                const endY = yScale.getValueForPixel(selectionEnd.y);
+
+                const minPrice = Math.min(startX, endX);
+                const maxPrice = Math.max(startX, endX);
+                const maxIncome = Math.max(startY, endY);
+
+                // 找出最优价格点
+                let bestPrice = minPrice;
+                let bestIncome = 0;
+
+                for (let price = minPrice; price <= maxPrice; price += 10000) {
+                    const fee = calculateMedicineFee(price);
+                    const income = price - fee.fee;
+                    if (income > bestIncome && income <= maxIncome) {
+                        bestIncome = income;
+                        bestPrice = price;
+                    }
+                }
+
+                // 更新输入框和图表
+                medicinePriceInput.value = formatPrice(bestPrice);
+                updateMedicineChart(bestPrice);
+
+                // 延迟隐藏选择区域，让用户看到结果
+                setTimeout(() => {
+                    medicineSelection.style.display = 'none';
+                }, 500);
+            });
+        }
+
+        // 初始化装备图表
+        function initEquipmentChart() {
+            const ctx = document.getElementById('equipment-chart').getContext('2d');
+            const entries = parseInt(document.getElementById('equipment-entries').value);
+            const basePriceInput = document.getElementById('equipment-base-price').value;
+            const basePrice = parsePriceInput(basePriceInput);
+            const data = generateEquipmentChartData(entries, basePrice);
+            const equipmentSelection = document.getElementById('equipment-selection');
+            const equipmentPriceInput = document.getElementById('equipment-price');
+
+            // 选择区域相关变量
+            let isSelecting = false;
+            let selectionStart = { x: 0, y: 0 };
+            let selectionEnd = { x: 0, y: 0 };
+
+            equipmentChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: '实际收入',
+                            data: data.chartData,
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            fill: true,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            // 确保线条只在有效数据范围内绘制
+                            spanGaps: false,
+                            // 设置数据边界
+                            xAxisID: 'x'
+                        },
+                        {
+                            label: '极值点',
+                            data: data.extremePoints,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 1)',
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            showLine: false
+                        },
+                        {
+                            label: '最高点',
+                            data: data.highestPoint ? [data.highestPoint] : [],
+                            borderColor: 'rgba(255, 159, 64, 1)',
+                            backgroundColor: 'rgba(255, 159, 64, 1)',
+                            pointRadius: 10,
+                            pointHoverRadius: 12,
+                            pointStyle: 'circle',
+                            showLine: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: '期望售价'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    // 只显示在实际数据范围内的刻度
+                                    if (value >= 0 && value <= data.maxX) {
+                                        return formatPrice(value);
+                                    }
+                                    return '';
+                                }
+                            },
+                            // 扩展显示区域，使用5%的范围作为边距
+                            min: -data.maxX * 0.05,
+                            max: data.maxX * 1.05,
+                            // 添加一些边距，使图表不会紧贴边缘
+                            afterBuildTicks: function(scale) {
+                                scale.ticks = scale.ticks.map(function(tick) {
+                                    return tick;
+                                });
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '实际收入'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    // 只显示在实际数据范围内的刻度
+                                    if (value >= 0 && value <= data.maxX) {
+                                        return formatPrice(value);
+                                    }
+                                    return '';
+                                }
+                            },
+                            // 添加一些边距，使图表不会紧贴边缘
+                            afterBuildTicks: function(scale) {
+                                const maxValue = Math.max(...data.chartData.map(d => d.y));
+                                scale.max = maxValue * 1.1; // 增加10%的上边距
+                            }
+                        }
+                    },
+                    layout: {
+                        padding: {
+                            left: 10,
+                            right: 20,
+                            top: 10,
+                            bottom: 10
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            enabled: false // 禁用Chart.js默认的tooltip
+                        }
+                    },
+                    onHover: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const canvasPosition = Chart.helpers.getRelativePosition(event, equipmentChart);
+                            let dataX = equipmentChart.scales.x.getValueForPixel(canvasPosition.x);
+                            const dataY = equipmentChart.scales.y.getValueForPixel(canvasPosition.y);
+
+                            // 检查是否在最大值范围内
+                            const data = equipmentChart.data.datasets[0].data;
+                            const maxX = Math.max(...data.map(point => point.x));
+                            const maxXRange = maxX * 0.02; // 最大值2%的范围
+
+                            // 如果在最大值范围内，使用最大值
+                            if (Math.abs(dataX - maxX) < maxXRange) {
+                                dataX = maxX;
+                            }
+
+                            const tooltip = document.getElementById('equipment-tooltip');
+                            tooltip.style.display = 'block';
+                            const entries = parseInt(document.getElementById('equipment-entries').value);
+                            const basePriceInput = document.getElementById('equipment-base-price').value;
+                            const basePrice = parsePriceInput(basePriceInput);
+                            const result = calculateEquipmentFee(dataX, entries, basePrice);
+                            tooltip.innerHTML = `
+                                <table class="tooltip-table">
+                                    <tr><td>期望售价:</td><td>${formatPrice(dataX)}</td></tr>
+                                    <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
+                                    <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
+                                    <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
+                                </table>
+                            `;
+
+                            // 使用鼠标位置定位tooltip，并确保不超出body边界
+                            const tooltipRect = tooltip.getBoundingClientRect();
+                            const bodyRect = document.body.getBoundingClientRect();
+
+                            let left = event.native.clientX - bodyRect.left + 10;
+                            let top = event.native.clientY - bodyRect.top - tooltipRect.height - 10;
+
+                            // 检查右边界
+                            if (left + tooltipRect.width > bodyRect.width) {
+                                left = event.native.clientX - bodyRect.left - tooltipRect.width - 10;
+                            }
+
+                            // 检查左边界
+                            if (left < 0) {
+                                left = 10;
+                            }
+
+                            // 检查下边界
+                            if (top < 0) {
+                                top = event.native.clientY - bodyRect.top + 10;
+                            }
+
+                            // 检查上边界
+                            if (top + tooltipRect.height > bodyRect.height) {
+                                top = bodyRect.height - tooltipRect.height - 10;
+                            }
+
+                            tooltip.style.left = left + 'px';
+                            tooltip.style.top = top + 'px';
+
+                            // 检查是否靠近极值点
+                            let nearExtremePoint = false;
+                            for (const point of data.extremePoints) {
+                                const distance = Math.abs(point.x - dataX);
+                                if (distance < data.maxX * 0.02) { // 如果距离小于最大值的2%
+                                    nearExtremePoint = true;
+
+                                    // 移除current-point显示逻辑，只保留tooltip
+
+                                    // 直接使用极值点的值，不更新输入框和图表
+                                    const entries = parseInt(document.getElementById('equipment-entries').value);
+                                    const basePriceInput = document.getElementById('equipment-base-price').value;
+                                    const basePrice = parsePriceInput(basePriceInput);
+                                    const result = calculateEquipmentFee(point.x, entries, basePrice);
+                                    tooltip.innerHTML = `
+                                        <table class="tooltip-table">
+                                            <tr><td>期望售价:</td><td>${formatPrice(point.x)}</td></tr>
+                                            <tr><td>手续费率:</td><td>${result.feeRate.toFixed(2)}%</td></tr>
+                                            <tr><td>手续费:</td><td>${formatPrice(result.fee)}</td></tr>
+                                            <tr><td>实际收入:</td><td>${formatPrice(result.actualIncome)}</td></tr>
+                                        </table>
+                                    `;
+                                    break;
+                                }
+                            }
+
+                            if (!nearExtremePoint) {
+                                // 不再需要隐藏current-point
+                            }
+                        } else {
+                            document.getElementById('equipment-tooltip').style.display = 'none';
+                            // 不再需要隐藏current-point
+                        }
+                    }
+                }
+            });
+
+            // 添加图表选择区域功能
+            const chartCanvas = document.getElementById('equipment-chart');
+
+            chartCanvas.addEventListener('mousedown', function(e) {
+                isSelecting = true;
+                const rect = chartCanvas.getBoundingClientRect();
+                selectionStart.x = e.clientX - rect.left;
+                selectionStart.y = e.clientY - rect.top;
+                selectionEnd.x = selectionStart.x;
+                selectionEnd.y = selectionStart.y;
+
+                equipmentSelection.style.display = 'block';
+                equipmentSelection.style.left = selectionStart.x + 'px';
+                equipmentSelection.style.top = selectionStart.y + 'px';
+                equipmentSelection.style.width = '0px';
+                equipmentSelection.style.height = '0px';
+            });
+
+            chartCanvas.addEventListener('mousemove', function(e) {
+                if (!isSelecting) return;
+
+                const rect = chartCanvas.getBoundingClientRect();
+                selectionEnd.x = e.clientX - rect.left;
+                selectionEnd.y = e.clientY - rect.top;
+
+                const left = Math.min(selectionStart.x, selectionEnd.x);
+                const top = Math.min(selectionStart.y, selectionEnd.y);
+                const width = Math.abs(selectionEnd.x - selectionStart.x);
+                const height = Math.abs(selectionEnd.y - selectionStart.y);
+
+                equipmentSelection.style.left = left + 'px';
+                equipmentSelection.style.top = top + 'px';
+                equipmentSelection.style.width = width + 'px';
+                equipmentSelection.style.height = height + 'px';
+            });
+
+            chartCanvas.addEventListener('mouseup', function(e) {
+                if (!isSelecting) return;
+                isSelecting = false;
+
+                // 计算选择区域对应的价格范围
+                const xScale = equipmentChart.scales.x;
+                const yScale = equipmentChart.scales.y;
+
+                const startX = xScale.getValueForPixel(selectionStart.x);
+                const endX = xScale.getValueForPixel(selectionEnd.x);
+                const startY = yScale.getValueForPixel(selectionStart.y);
+                const endY = yScale.getValueForPixel(selectionEnd.y);
+
+                const minPrice = Math.min(startX, endX);
+                const maxPrice = Math.max(startX, endX);
+                const maxIncome = Math.max(startY, endY);
+
+                // 找出最优价格点
+                let bestPrice = minPrice;
+                let bestIncome = 0;
+                const entries = parseInt(document.getElementById('equipment-entries').value);
+                const basePriceInput = document.getElementById('equipment-base-price').value;
+                const basePrice = parsePriceInput(basePriceInput);
+
+                for (let price = minPrice; price <= maxPrice; price += 10000) {
+                    const result = calculateEquipmentFee(price, entries, basePrice);
+                    const income = result.actualIncome;
+                    if (income > bestIncome && income <= maxIncome) {
+                        bestIncome = income;
+                        bestPrice = price;
+                    }
+                }
+
+                // 更新输入框和图表
+                equipmentPriceInput.value = formatPrice(bestPrice);
+                updateEquipmentChart(bestPrice);
+
+                // 延迟隐藏选择区域，让用户看到结果
+                setTimeout(() => {
+                    equipmentSelection.style.display = 'none';
+                }, 500);
+            });
+        }
+
+        // 计算药品
+        function calculateMedicine() {
+            const priceInput = document.getElementById('medicine-price').value;
+            const price = parsePriceInput(priceInput);
+            const result = calculateMedicineFee(price);
+
+            // 在图表上标记当前点
+            if (medicineChart) {
+                // 添加或更新当前点数据集
+                let currentPointDataset = medicineChart.data.datasets.find(dataset => dataset.label === '当前输入');
+
+                if (!currentPointDataset) {
+                    medicineChart.data.datasets.push({
+                        label: '当前输入',
+                        data: [{x: result.price, y: result.actualIncome}],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 1)',
+                        pointRadius: 7,
+                        pointHoverRadius: 9,
+                        showLine: false
+                    });
+                } else {
+                    currentPointDataset.data = [{x: result.price, y: result.actualIncome}];
+                }
+
+                medicineChart.update();
+            }
+        }
+
+        // 计算装备
+        function calculateEquipment() {
+            const priceInput = document.getElementById('equipment-price').value;
+            const price = parsePriceInput(priceInput);
+            const basePriceInput = document.getElementById('equipment-base-price').value;
+            const basePrice = parsePriceInput(basePriceInput);
+            const entries = parseInt(document.getElementById('equipment-entries').value);
+            const result = calculateEquipmentFee(price, entries, basePrice);
+
+            // 在图表上标记当前点
+            if (equipmentChart) {
+                // 添加或更新当前点数据集
+                let currentPointDataset = equipmentChart.data.datasets.find(dataset => dataset.label === '当前输入');
+
+                if (!currentPointDataset) {
+                    equipmentChart.data.datasets.push({
+                        label: '当前输入',
+                        data: [{x: result.price, y: result.actualIncome}],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 1)',
+                        pointRadius: 7,
+                        pointHoverRadius: 9,
+                        showLine: false
+                    });
+                } else {
+                    currentPointDataset.data = [{x: result.price, y: result.actualIncome}];
+                }
+
+                equipmentChart.update();
+            }
+        }
+
+        // 更新表格数据
+        function updateDataTable(data) {
+            const tbody = document.getElementById('equipment-data-points');
+            tbody.innerHTML = '';
+            
+            // 添加极值点
+            data.extremePoints.forEach((point, index) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>极值点 ${index + 1}</td>
+                    <td>${formatPrice(point.x)}</td>
+                    <td>${formatPrice(point.y)}</td>
+                    <td>${point.feeRate}%</td>
+                `;
+            });
+            
+            // 添加最高点
+            if (data.highestPoint) {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>最高点</td>
+                    <td>${formatPrice(data.highestPoint.x)}</td>
+                    <td>${formatPrice(data.highestPoint.y)}</td>
+                    <td>${data.highestPoint.feeRate}%</td>
+                `;
+                // 高亮最高点行
+                row.style.backgroundColor = 'rgba(75, 192, 192, 0.2)';
+            }
+        }
+
+        // 词条数变化时更新图表
+        document.getElementById('equipment-entries').addEventListener('change', function() {
+            if (equipmentChart) {
+                const entries = parseInt(this.value);
+                const basePriceInput = document.getElementById('equipment-base-price').value;
+                const basePrice = parsePriceInput(basePriceInput);
+                const data = generateEquipmentChartData(entries, basePrice);
+
+                // 更新图表数据
+                equipmentChart.data.datasets[0].data = data.chartData;
+                equipmentChart.data.datasets[1].data = data.extremePoints;
+                equipmentChart.data.datasets[2].data = data.highestPoint ? [data.highestPoint] : [];
+                equipmentChart.options.scales.x.max = data.maxX;
+
+                // 移除当前点
+                const currentPointIndex = equipmentChart.data.datasets.findIndex(dataset => dataset.label === '当前输入');
+                if (currentPointIndex !== -1) {
+                    equipmentChart.data.datasets.splice(currentPointIndex, 1);
+                }
+
+                equipmentChart.update();
+
+                // 更新表格数据
+                updateDataTable(data);
+            }
+        });
+
+        // 统一回收价变化时更新图表
+        document.getElementById('equipment-base-price').addEventListener('change', function() {
+            if (equipmentChart) {
+                const entries = parseInt(document.getElementById('equipment-entries').value);
+                const basePriceInput = this.value;
+                const basePrice = parsePriceInput(basePriceInput);
+                const data = generateEquipmentChartData(entries, basePrice);
+
+                // 更新图表数据
+                equipmentChart.data.datasets[0].data = data.chartData;
+                equipmentChart.data.datasets[1].data = data.extremePoints;
+                equipmentChart.data.datasets[2].data = data.highestPoint ? [data.highestPoint] : [];
+                equipmentChart.options.scales.x.max = data.maxX;
+
+                // 移除当前点
+                const currentPointIndex = equipmentChart.data.datasets.findIndex(dataset => dataset.label === '当前输入');
+                if (currentPointIndex !== -1) {
+                    equipmentChart.data.datasets.splice(currentPointIndex, 1);
+                }
+
+                equipmentChart.update();
+
+                // 更新表格数据
+                updateDataTable(data);
+            }
+        });
+
+        // 初始化药品图表
+        initMedicineChart();
+
+        // 添加药品价格输入监听，实现实时计算
+        document.getElementById('medicine-price').addEventListener('input', function() {
+            if (this.value.trim()) {
+                calculateMedicine();
+            } else {
+                document.getElementById('medicine-result').style.display = 'none';
+            }
+        });
+
+        // 添加装备价格输入监听，实现实时计算
+        document.getElementById('equipment-price').addEventListener('input', function() {
+            if (this.value.trim()) {
+                calculateEquipment();
+            } else {
+                document.getElementById('equipment-result').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
