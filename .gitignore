@@ -1,0 +1,3 @@
+# 忽略unpackage目录及其所有内容
+unpackage/
+/unpackage

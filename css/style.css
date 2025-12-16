@@ -243,3 +243,17 @@ body {
             max-height: 80vh;
             overflow-y: auto;
         }
+                /* 横屏适配：增大图表高度并调整内边距 */
+                @media (orientation: landscape) {
+                    body {
+                        padding: 12px 40px;
+                    }
+                    .chart-container {
+                        height: calc(100vh - 140px);
+                        padding: 0 30px;
+                    }
+                    .input-row { gap: 14px; }
+                    input, select { max-width: 12ch; }
+                }
+
+                /* 手动横屏样式已回退 */
